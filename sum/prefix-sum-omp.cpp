@@ -5,6 +5,12 @@
 
 typedef unsigned int uint;
 
+struct thread_data
+{
+	int start;
+	int end;
+};
+
 // Gets the input value from the input file
 void get_values(char* filename, std::vector<uint>& values) {
      std::fstream infile(filename);
@@ -21,18 +27,39 @@ void get_values(char* filename, std::vector<uint>& values) {
 }
 
 int main (int argc, char* argv[]){
-     if (argc == 2) {
+     if (argc == 3) {\
+          int NUM_THREADS = atoi(argv[1]);
           std::vector<uint> values;
-          get_values(argv[1], values);
+          get_values(argv[2], values);
           // Open the output file
           std::ofstream outfile("problem_output_omp");
           // Start processing
           uint n = values.size();
           uint prefix = 0;
-          #pragma omp parallel for shared
-          for (uint i = 0; i < n; ++i){
-               prefix += values[i];
-               outfile << prefix << std::endl;
+
+          struct thread_data td[NUM_THREADS];
+          for (int i = 0; i < NUM_THREADS; i++)
+          {
+               td[i].start = i * (n / NUM_THREADS);
+               td[i].end = (i + 1) * (n / NUM_THREADS);
+               if (i == NUM_THREADS - 1)
+               {
+                    td[i].end = n;
+               }
+          }
+          #pragma omp parallel for ordered num_threads(NUM_THREADS)
+          for (int i = 0; i < NUM_THREADS; i++)
+          {
+               int thread_id = omp_get_thread_num();
+               #pragma omp ordered
+               {
+                    for (int j = td[thread_id].start; j < td[thread_id].end; j++)
+                    {
+                         prefix += values[j];
+                         values[j] = prefix;
+                         outfile << prefix << std::endl;
+                    }
+               }
           }
           outfile.close();
      } else {
